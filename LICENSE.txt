@@ -1,0 +1,21 @@
+PERSONAL USE LICENSE
+
+Project: n8n Automation Workflow
+
+Original Creator: Kartbya Kumar
+
+Copyright © 2026 Kartbya Kumar. All rights reserved.
+
+PERMISSIONS:
+You are permitted to import, execute and use this workflow for personal and internal purposes.
+
+RESTRICTIONS:
+1. You cannot claim authorship of the original workflow.
+2. You cannot redistribute or resell this workflow without written permission.
+3. You cannot publish this workflow as your own original creation.
+4. You cannot remove or modify the original creator attribution.
+
+OWNERSHIP:
+The original workflow design and implementation remain attributed to Kartbya Kumar.
+
+Commercial use and redistribution require prior written permission from the original creator.

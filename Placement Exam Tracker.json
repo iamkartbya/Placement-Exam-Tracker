@@ -1,0 +1,1153 @@
+{
+  "name": "Placement Exam Tracker",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "(placement OR exam OR test OR assessment OR drive OR shortlist OR shortlisted OR recruitment OR hiring OR interview OR \"job description\" OR JD OR campus OR \"off campus\" OR \"off-campus\" OR \"online test\" OR \"coding test\" OR \"coding challenge\" OR \"next round\" OR \"technical round\" OR \"HR round\" OR invitation OR application OR hackerrank OR hackerearth OR codility OR mettl OR amcat OR \"aon assessment\" OR shl) -category:promotions -category:social",
+          "readStatus": "both"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "id": "9b00f5f7-88bd-4fcf-8c7d-606119b0fbb8",
+      "name": "Gmail 1 - New Placement Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -224,
+        144
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "jZlTsX9ZvSu2hnyf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  const html = typeof j.html === 'string'\n    ? j.html.replace(/<(style|script)[^>]*>[^]*?<.(style|script)>/gi, ' ').replace(/<br[^>]*>/gi, '\\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ')\n    : '';\n  const body = String(j.text || html || '').replace(/[ \\t]+/g, ' ');\n  const base = { email_id: j.id, subject: j.subject || '', from: (j.from && j.from.text) || '', received: j.date || '' };\n  out.push({ json: Object.assign({}, base, { kind: 'body', text: 'EMAIL BODY:\\n' + body }) });\n  const bins = item.binary || {};\n  for (const key of Object.keys(bins)) {\n    const b = bins[key];\n    const fileName = b.fileName || key;\n    const name = fileName.toLowerCase();\n    const mime = String(b.mimeType || '').toLowerCase();\n    let kind = 'other';\n    if (mime.includes('pdf') || name.endsWith('.pdf')) kind = 'pdf';\n    else if (name.endsWith('.xlsx') || name.endsWith('.xls') || mime.includes('spreadsheet') || mime.includes('excel')) kind = 'excel';\n    else if (name.endsWith('.csv') || mime.includes('csv')) kind = 'csv';\n    const entry = { json: Object.assign({}, base, { kind: kind, fileName: fileName, text: kind === 'other' ? '[Attachment not readable: ' + fileName + ']' : '' }) };\n    if (kind !== 'other') entry.binary = { data: b };\n    out.push(entry);\n  }\n}\nreturn out;"
+      },
+      "id": "57bb689a-24c8-47f9-bed5-225ca7eb4a51",
+      "name": "Split Email and Attachments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.kind }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "pdf"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.kind }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "excel"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Excel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.kind }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "rightValue": "csv"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CSV"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Email body / other"
+        }
+      },
+      "id": "8ee7295c-4210-4546-8f31-dc96e25ba2a9",
+      "name": "Route by File Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        640,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {
+          "joinPages": true
+        }
+      },
+      "id": "b08ad508-8660-43ee-8bca-900506fa0fdb",
+      "name": "Read PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        272
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "p1",
+              "name": "email_id",
+              "value": "={{ $(\"Split Email and Attachments\").item.json.email_id }}",
+              "type": "string"
+            },
+            {
+              "id": "p2",
+              "name": "text",
+              "value": "={{ \"ATTACHMENT \" + $(\"Split Email and Attachments\").item.json.fileName + \":\\n\" + ($json.text || \"\") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "78616e35-a3cf-4eca-afe4-475c1d19db8d",
+      "name": "PDF Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "id": "77801e84-1d0f-489c-8c40-fbc3f3261756",
+      "name": "Read Excel",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        464
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1",
+              "name": "email_id",
+              "value": "={{ $(\"Split Email and Attachments\").item.json.email_id }}",
+              "type": "string"
+            },
+            {
+              "id": "e2",
+              "name": "text",
+              "value": "={{ Object.values($json).join(\" | \") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fc24f2c4-2fec-43ce-8a1d-81c9766d5a01",
+      "name": "Excel Row Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "relaxQuotes": true,
+          "headerRow": true
+        }
+      },
+      "id": "2227309a-9b3b-411a-a268-90d830612993",
+      "name": "Read CSV",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        656
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c1",
+              "name": "email_id",
+              "value": "={{ $(\"Split Email and Attachments\").item.json.email_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c2",
+              "name": "text",
+              "value": "={{ Object.values($json).join(\" | \") }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a8179deb-2858-49ec-8aa7-3638f8fadb25",
+      "name": "CSV Row Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "(placement OR exam OR test OR assessment OR drive OR shortlist OR shortlisted OR recruitment OR hiring OR interview OR \"job description\" OR JD OR campus OR \"off campus\" OR \"off-campus\" OR \"online test\" OR \"coding test\" OR \"coding challenge\" OR \"next round\" OR \"technical round\" OR \"HR round\" OR invitation OR application OR hackerrank OR hackerearth OR codility OR mettl OR amcat OR \"aon assessment\" OR shl) -category:promotions -category:social",
+          "readStatus": "both"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "id": "bd0cbe6e-764c-427d-b58d-b9e8394b37c1",
+      "name": "Gmail 2 - New Placement Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -208,
+        400
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "jZlTsX9ZvSu2hnyf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "(placement OR exam OR test OR assessment OR drive OR shortlist OR shortlisted OR recruitment OR hiring OR interview OR \"job description\" OR JD OR campus OR \"off campus\" OR \"off-campus\" OR \"online test\" OR \"coding test\" OR \"coding challenge\" OR \"next round\" OR \"technical round\" OR \"HR round\" OR invitation OR application OR hackerrank OR hackerearth OR codility OR mettl OR amcat OR \"aon assessment\" OR shl) -category:promotions -category:social",
+          "readStatus": "both"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "id": "d60ddc17-617e-41ba-a347-c930a6e17fed",
+      "name": "Gmail 3 - New Placement Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -224,
+        640
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "jZlTsX9ZvSu2hnyf",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "cf60dd69-c1a0-45a7-a4cf-5e2a4f38bb5f",
+      "name": "Collect All Text",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1312,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const groups = {};\nconst order = [];\nfor (const item of $input.all()) {\n  const j = item.json || {};\n  if (!j.email_id) continue;\n  if (!groups[j.email_id]) {\n    groups[j.email_id] = { subject: '', from: '', received: '', body: '', parts: [] };\n    order.push(j.email_id);\n  }\n  const g = groups[j.email_id];\n  if (j.subject) g.subject = j.subject;\n  if (j.from) g.from = j.from;\n  if (j.received) g.received = j.received;\n  if (j.kind === 'body') g.body = String(j.text || '');\n  else if (j.text) g.parts.push(String(j.text));\n}\nreturn order.map(function (id) {\n  const g = groups[id];\n  const full = [g.body].concat(g.parts).join('\\n');\n  const norm = full.toLowerCase().replace(/\\S+@\\S+/g, ' ').replace(/\\s+/g, ' ');\n  const shortlisted = norm.includes('43110402') || /kartbya\\s*kumar/.test(norm) || /kumar\\s*,?\\s*kartbya/.test(norm);\n  return { json: { email_id: id, subject: g.subject, from: g.from, received: g.received, shortlisted: shortlisted, content: full.slice(0, 20000) } };\n});"
+      },
+      "id": "bee09414-5157-47bb-9d75-d4dddda044c5",
+      "name": "Combine Text and Check Name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1536,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "text": "=Today: {{ $now.setZone(\"Asia/Calcutta\").toISO() }}\nEmail received: {{ $json.received }}\nFrom: {{ $json.from }}\nSubject: {{ $json.subject }}\nStudent (Kartbya Kumar, reg no 43110402) found in the email or attached list: {{ $json.shortlisted ? \"YES\" : \"NO\" }}\n\n{{ $json.content }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "is_exam",
+              "type": "boolean",
+              "description": "true only if this email announces a placement exam, online test, coding challenge, assessment, interview round or recruitment drive with a specific date or deadline. This includes on-campus placement announcements AND off-campus emails sent directly by a company, recruiter or test platform (HackerRank, HackerEarth, Mettl, SHL etc.) about the student's own application. false for job alerts, job recommendation digests, application-received acknowledgements without a test date, rejections, results, newsletters, or anything without a date.",
+              "required": true
+            },
+            {
+              "name": "is_off_campus",
+              "type": "boolean",
+              "description": "true if the email comes directly from a company, recruiter, job portal or test platform about the student's own off-campus application; false if it is a college placement cell / Google Group announcement"
+            },
+            {
+              "name": "company",
+              "description": "Hiring company or organiser name"
+            },
+            {
+              "name": "exam_title",
+              "description": "Short title, e.g. \"Online Assessment\" or \"Technical Interview\""
+            },
+            {
+              "name": "exam_start",
+              "description": "Exam start as ISO 8601 in 24-hour time with +05:30 offset, e.g. 2026-11-20T10:00:00+05:30. Convert 12-hour times carefully: p.m./PM adds 12 hours (10:51 p.m. = 22:51, 2 PM = 14:00), 12 a.m. = 00:00, 12 p.m. = 12:00. If it is a take-anytime test with only a deadline, use the deadline date and time. If no time is given use 09:00. If the year is missing, use the next occurrence after the received date. Empty if unknown."
+            },
+            {
+              "name": "duration_minutes",
+              "type": "number",
+              "description": "Exam duration in minutes; 60 if not stated"
+            },
+            {
+              "name": "location",
+              "description": "Venue, lab, or test link"
+            },
+            {
+              "name": "details",
+              "description": "Brief summary: eligibility, roles/JD, registration deadline, links, reporting time"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "61cf7882-00a6-4353-9aac-9fe50ee892b8",
+      "name": "Find Exam Details",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        1104,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "email_id",
+              "value": "={{ $(\"Combine Text and Check Name\").item.json.email_id }}",
+              "type": "string"
+            },
+            {
+              "id": "f2",
+              "name": "subject",
+              "value": "={{ $(\"Combine Text and Check Name\").item.json.subject }}",
+              "type": "string"
+            },
+            {
+              "id": "f3",
+              "name": "shortlisted",
+              "value": "={{ $(\"Combine Text and Check Name\").item.json.shortlisted }}",
+              "type": "boolean"
+            },
+            {
+              "id": "f4",
+              "name": "company",
+              "value": "={{ $json.output.company || \"Placement\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f5",
+              "name": "exam_title",
+              "value": "={{ $json.output.exam_title || \"Exam\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f6",
+              "name": "exam_start",
+              "value": "={{ $json.output.exam_start || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f7",
+              "name": "exam_end",
+              "value": "={{ DateTime.fromISO(String($json.output.exam_start || \"\")).isValid ? DateTime.fromISO(String($json.output.exam_start)).plus({ minutes: Number($json.output.duration_minutes) || 60 }).toISO() : \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f8",
+              "name": "location",
+              "value": "={{ $json.output.location || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f9",
+              "name": "details",
+              "value": "={{ $json.output.details || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "f10",
+              "name": "exam_key",
+              "value": "={{ String($json.output.company || $(\"Combine Text and Check Name\").item.json.subject || \"\").toLowerCase().replace(/[^a-z0-9]/g, \"\") + \"|\" + String($json.output.exam_start || \"\").slice(0, 10) }}",
+              "type": "string"
+            },
+            {
+              "id": "f12",
+              "name": "off_campus",
+              "value": "={{ $json.output.is_off_campus === true }}",
+              "type": "boolean"
+            },
+            {
+              "id": "f11",
+              "name": "is_upcoming",
+              "value": "={{ $json.output.is_exam === true && DateTime.fromISO(String($json.output.exam_start || \"\")).isValid && DateTime.fromISO(String($json.output.exam_start)) > $now }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf8c1235-3e51-4a1a-9d88-50e5892e95d6",
+      "name": "Prepare Exam Event",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1456,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "u1",
+              "leftValue": "={{ $json.is_upcoming }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "06cfa167-a63f-4ec0-b50e-92c65d72e2ad",
+      "name": "Upcoming Exam?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "EoANhuctVVrXuJMF",
+          "mode": "list",
+          "cachedResultName": "Placement_Exam_Tracker",
+          "cachedResultUrl": "/projects/iiR7MEmQ5nthXCUW/datatables/EoANhuctVVrXuJMF"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "exam_key",
+              "keyValue": "={{ $json.exam_key }}"
+            }
+          ]
+        }
+      },
+      "id": "f6f7a546-702b-490f-bf1d-32ce11a34e6b",
+      "name": "Not Already on Calendar",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1840,
+        288
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "mode": "list",
+          "value": "YOUR_MAIL_HERE",
+          "cachedResultName": "YOUR_MAIL_HERE"
+        },
+        "start": "={{ $json.exam_start }}",
+        "end": "={{ $json.exam_end }}",
+        "useDefaultReminders": false,
+        "additionalFields": {
+          "description": "={{ ($json.off_campus ? \"Off-campus application - sent directly to you.\" : $json.shortlisted ? \"Your name / reg no 43110402 is on the list.\" : \"Announcement - your name was not found in the email or attachments.\") + \"\\n\\n\" + $json.details + \"\\n\\nEmail: \" + $json.subject }}",
+          "location": "={{ $json.location }}",
+          "summary": "={{ ($json.off_campus ? \"[Off-campus] \" : $json.shortlisted ? \"[Shortlisted] \" : \"[Drive] \") + $json.company + \" - \" + $json.exam_title }}"
+        },
+        "remindersUi": {
+          "remindersValues": [
+            {
+              "method": "popup",
+              "minutes": 60
+            },
+            {
+              "method": "popup",
+              "minutes": 4320
+            },
+            {
+              "method": "popup",
+              "minutes": 8640
+            },
+            {
+              "method": "popup",
+              "minutes": 12960
+            },
+            {
+              "method": "popup",
+              "minutes": 17280
+            }
+          ]
+        }
+      },
+      "id": "e4957ecd-bd13-4023-b2d2-1071ecf9d09b",
+      "name": "Add Exam to Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2096,
+        272
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "xFOX5allo9H9iwdo",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "EoANhuctVVrXuJMF",
+          "mode": "list",
+          "cachedResultName": "Placement_Exam_Tracker",
+          "cachedResultUrl": "/projects/iiR7MEmQ5nthXCUW/datatables/EoANhuctVVrXuJMF"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "shortlisted": true,
+            "off_campus": true,
+            "is_upcoming": true,
+            "email_id": "={{ $('Prepare Exam Event').item.json.email_id }}",
+            "subject": "={{ $('Prepare Exam Event').item.json.subject }}",
+            "company": "={{ $('Prepare Exam Event').item.json.company }}",
+            "exam_title": "={{ $('Prepare Exam Event').item.json.exam_title }}",
+            "exam_start": "={{ $('Prepare Exam Event').item.json.exam_start }}",
+            "exam_end": "={{ $('Prepare Exam Event').item.json.exam_end }}",
+            "location": "={{ $('Prepare Exam Event').item.json.location }}",
+            "details": "={{ $('Prepare Exam Event').item.json.details }}",
+            "exam_key": "={{ $('Prepare Exam Event').item.json.exam_key }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "email_id",
+              "displayName": "email_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "exam_title",
+              "displayName": "exam_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "shortlisted",
+              "displayName": "shortlisted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "exam_start",
+              "displayName": "exam_start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "exam_end",
+              "displayName": "exam_end",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "exam_key",
+              "displayName": "exam_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "off_campus",
+              "displayName": "off_campus",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "is_upcoming",
+              "displayName": "is_upcoming",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "81375ac8-d907-4f2b-ad40-8c0f8648981e",
+      "name": "Remember Exam",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2320,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1184,
+        496
+      ],
+      "id": "89233e0b-117d-4301-8100-a657985fed43",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2fHU4kZpAIr4hWHl",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "© Original Creator Notice\nDeveloped by: Kartbya Kumar\n\nCopyright: © 2026 Kartbya Kumar\n\nProject: n8n Automation Workflow\n\nLicense: Personal Use Only\n\nPermissions:\n- Personal use permitted.\n- Internal use permitted.\nRestrictions:\n- No unauthorized redistribution.\n- No resale.\n- No claiming original authorship.\n- Do not remove creator attribution.\n",
+        "height": 352,
+        "width": 640
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        -16
+      ],
+      "id": "9f836d24-1b3d-412d-beb0-535497aa5ccc",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "q": "to:sathyabama-pc-2027-engg@googlegroups.com"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -224,
+        -80
+      ],
+      "id": "2ec62026-15a3-4d04-a110-1ba638bc93fa",
+      "name": "Google Group",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "VPtHXj6eS9mpFtu6",
+          "name": "Gmail account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail 1 - New Placement Email": {
+      "main": [
+        [
+          {
+            "node": "Split Email and Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Email and Attachments": {
+      "main": [
+        [
+          {
+            "node": "Route by File Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by File Type": {
+      "main": [
+        [
+          {
+            "node": "Read PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Excel",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read CSV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect All Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF": {
+      "main": [
+        [
+          {
+            "node": "PDF Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Text": {
+      "main": [
+        [
+          {
+            "node": "Collect All Text",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Read Excel": {
+      "main": [
+        [
+          {
+            "node": "Excel Row Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel Row Text": {
+      "main": [
+        [
+          {
+            "node": "Collect All Text",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Read CSV": {
+      "main": [
+        [
+          {
+            "node": "CSV Row Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CSV Row Text": {
+      "main": [
+        [
+          {
+            "node": "Collect All Text",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Gmail 2 - New Placement Email": {
+      "main": [
+        [
+          {
+            "node": "Split Email and Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail 3 - New Placement Email": {
+      "main": [
+        [
+          {
+            "node": "Split Email and Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect All Text": {
+      "main": [
+        [
+          {
+            "node": "Combine Text and Check Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Text and Check Name": {
+      "main": [
+        [
+          {
+            "node": "Find Exam Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Exam Details": {
+      "main": [
+        [
+          {
+            "node": "Prepare Exam Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Exam Event": {
+      "main": [
+        [
+          {
+            "node": "Upcoming Exam?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upcoming Exam?": {
+      "main": [
+        [
+          {
+            "node": "Not Already on Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not Already on Calendar": {
+      "main": [
+        [
+          {
+            "node": "Add Exam to Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Exam to Calendar": {
+      "main": [
+        [
+          {
+            "node": "Remember Exam",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Find Exam Details",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Group": {
+      "main": [
+        [
+          {
+            "node": "Split Email and Attachments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "397ef829-1ff1-4538-84de-049f2a2a5588",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "90031082aee1ce44dd7bcd528cb35b698e7e24246f16390ca70f52d8d941b419"
+  },
+  "nodeGroups": [
+    {
+      "id": "a4246d0f-0528-45fc-b41f-e93c3a84d576",
+      "name": "Read email and attachments",
+      "nodeIds": [
+        "57bb689a-24c8-47f9-bed5-225ca7eb4a51",
+        "8ee7295c-4210-4546-8f31-dc96e25ba2a9",
+        "b08ad508-8660-43ee-8bca-900506fa0fdb",
+        "77801e84-1d0f-489c-8c40-fbc3f3261756",
+        "2227309a-9b3b-411a-a268-90d830612993",
+        "78616e35-a3cf-4eca-afe4-475c1d19db8d",
+        "fc24f2c4-2fec-43ce-8a1d-81c9766d5a01",
+        "a8179deb-2858-49ec-8aa7-3638f8fadb25",
+        "cf60dd69-c1a0-45a7-a4cf-5e2a4f38bb5f",
+        "bee09414-5157-47bb-9d75-d4dddda044c5"
+      ],
+      "description": "Pulls text from the email body and attached PDF, Excel or CSV lists, then checks for your name or register number"
+    },
+    {
+      "id": "6d5eb490-9a40-40a5-a7f8-35d861df912c",
+      "name": "Identify exam details",
+      "nodeIds": [
+        "61cf7882-00a6-4353-9aac-9fe50ee892b8",
+        "89233e0b-117d-4301-8100-a657985fed43",
+        "cf8c1235-3e51-4a1a-9d88-50e5892e95d6",
+        "06cfa167-a63f-4ec0-b50e-92c65d72e2ad"
+      ],
+      "description": "AI finds the company, exam date, time and venue; keeps only real exams that are still upcoming"
+    },
+    {
+      "id": "cb68d33a-c540-40da-a1e2-33dca3bfb8b1",
+      "name": "Schedule exam reminders",
+      "nodeIds": [
+        "f6f7a546-702b-490f-bf1d-32ce11a34e6b",
+        "e4957ecd-bd13-4023-b2d2-1071ecf9d09b",
+        "81375ac8-d907-4f2b-ad40-8c0f8648981e"
+      ],
+      "description": "Skips exams already added from another inbox, then creates the calendar event with reminders every 3 days"
+    }
+  ],
+  "id": "I0iY0eSPDhobKHxc",
+  "tags": []
+}
